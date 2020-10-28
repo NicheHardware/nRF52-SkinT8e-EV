@@ -1,0 +1,13 @@
+JLink*
+hex/
+RTE/
+_build/
+Output/
+*.uvguix.*
+*.uvoptx
+*.uvgui.*
+.vscode
+*.scvd
+**/lvgl/
+*.emSession
+*.jlink
