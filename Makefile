@@ -64,6 +64,9 @@ SRC_FILES += \
   $(PROJ_DIR)/module/platform.c \
   $(PROJ_DIR)/module/timedate.c \
   $(PROJ_DIR)/module/led_drv.c \
+  $(PROJ_DIR)/module/display/api_oled_display.c \
+  $(PROJ_DIR)/module/display/hal_oled_ssd1306_128x64.c \
+  $(PROJ_DIR)/module/display/OLED_vram.c \
   $(PROJ_DIR)/main.c 
 
 
@@ -209,7 +212,8 @@ INC_FOLDERS += \
   $(PROJ_DIR)/config \
   $(PROJ_DIR)/bluetooth/service \
   $(PROJ_DIR)/bluetooth \
-  $(PROJ_DIR)/module
+  $(PROJ_DIR)/module \
+  $(PROJ_DIR)/module/display
 
 # Libraries common to all targets
 LIB_FILES += \
