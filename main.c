@@ -109,6 +109,31 @@ float calc_temp(float adc)
 	return B * t0 / (math_ln(Ut / (U0 - Ut)) * t0 + B) - 273.15;
 }
 
+float calc_term_temp(float tc)
+{
+	static float buffer[5] = {25};
+	static float tp_buffer[32] = {25};
+	static uint8_t bp = 0;
+	static uint8_t tp = 0;
+	float avr = 0;
+	buffer[bp] = tc;
+	if(bp < 4) {
+		bp += 1;
+	} else {
+		bp = 0;
+	}
+	for (uint8_t i = 0; i < 5; i++) {
+		avr += buffer[i];
+	}
+	avr /= 5;
+
+	tp_buffer[tp] = avr;
+	tp = (tp + 1) & 0x1F;
+
+	float diff = avr - tp_buffer[tp];
+	return avr + diff * 1.8;
+}
+
 char* temp2str(float f)
 {
 	static char float_str[16];
@@ -449,7 +474,8 @@ void test_handler(uevt_t* evt)
 			do {
 				static uint8_t tic = 0;
 				float tf = calc_temp(temp);
-				tempValx100 = tf * 100;
+				float ttf = calc_term_temp(tf);
+				tempValx100 = ttf * 100;
 				uevt_bc_e(UEVT_ADC_NEWDATA_FL);
 
 				// if(tic++ >= 5)
@@ -459,7 +485,7 @@ void test_handler(uevt_t* evt)
 					if(temp >= 4090) {
 						LOG_RAW("LOW\n");
 					} else {
-						LOG_RAW("%s\n", temp2str(tf));
+						LOG_RAW("%s\n", temp2str(ttf));
 					}
 				}
 			} while(0);
