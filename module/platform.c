@@ -425,6 +425,7 @@ uint8_t self_check(void)
 
 void peripheral_init(void)
 {
+	display_init();
 }
 
 void platform_init(void)

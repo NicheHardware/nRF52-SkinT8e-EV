@@ -17,21 +17,21 @@
 #endif
 
 #define LED_PIN (17)
-#define BUTTON1_PIN (16)
-#define BUTTON2_PIN (15)
-#define BUTTON3_PIN (14)
+#define BUTTON1_PIN (6)
+#define BUTTON2_PIN (7)
+#define BUTTON3_PIN (8)
 
 #define BUTTON_POL (NRF_GPIOTE_POLARITY_LOTOHI)
 #define BUTTON_PULL (nrf_gpio_pin_pull_t)(BUTTON_POL*2-1)
 #define BUTTON_SENSE (nrf_gpio_pin_sense_t)(BUTTON_POL+1)
 
-#define SCLK_PIN (11)
-#define MOSI_PIN (10)
+#define SCLK_PIN (12)
+#define MOSI_PIN (13)
 #define MISO_PIN (0xFF)
 
-#define OLED_DC_PIN (8)
-#define OLED_CS_PIN (7)
-#define OLED_RES_PIN (9)
+#define OLED_DC_PIN (15)
+#define OLED_CS_PIN (16)
+#define OLED_RES_PIN (14)
 
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"

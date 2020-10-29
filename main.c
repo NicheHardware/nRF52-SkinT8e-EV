@@ -129,6 +129,15 @@ char* temp2str(float f)
 
 
 #define kalman_K (0.08)
+
+void Hello(void)
+{
+	uint8_t str[] = "Temperature DK";
+	display_ascii(8, 24, str, strlen(str));
+	// display_ascii_big(0, 0, str, strlen(str));
+	display_implement();
+}
+
 void test_handler(uevt_t* evt)
 {
 	static int16_t x_buffer[8] = {0};
@@ -222,7 +231,7 @@ void user_init(void)
 int main(void)
 {
 	platform_init();
-	user_init();
+	Hello();
 
 	LOG_RAW("RTT Started.\n");
 
