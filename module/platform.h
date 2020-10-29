@@ -72,6 +72,7 @@ int16_t adc_get(uint8_t channel);
 #define UEVT_ADC_BASE (0x0200)
 #define UEVT_ADC_INIT (UEVT_ADC_BASE|0x01)
 #define UEVT_ADC_NEWDATA (UEVT_ADC_BASE|0x02)
+#define UEVT_ADC_NEWDATA_FL (UEVT_ADC_BASE|0x03)
 
 #define UEVT_STICK_BASE (0x0300)
 #define UEVT_STICK_UP (UEVT_STICK_BASE|0x01)
@@ -85,5 +86,7 @@ int16_t adc_get(uint8_t channel);
 #define UEVT_UI_INTO_SKATEBOARD_SERVER (UEVT_UI_BASE|0x03)
 #define UEVT_UI_INTO_LIGHTCTRL (UEVT_UI_BASE|0x04)
 
+#define UEVT_DTIME_BASE (0x0500)
+#define UEVT_DTIME_UPDATE (UEVT_DTIME_BASE|0x01)
 
 #endif

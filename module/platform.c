@@ -428,6 +428,8 @@ void peripheral_init(void)
 	display_init();
 }
 
+extern void user_init(void);
+
 void platform_init(void)
 {
 #if NRF_LOG_ENABLED==1
@@ -444,10 +446,11 @@ void platform_init(void)
 	LOG_RAW("RESET=0x%04X\r\n", read_chip_reset_reason());
 
 	// bluetooth_init();
+	user_init();
 
 	sd_power_dcdc_mode_set(NRF_POWER_DCDC_ENABLE);
 	// nrf_drv_gpiote_init();
-	// io_config();
+	io_config();
 	adc_config();
 	// pwm_config();
 #ifdef USE_FPU

@@ -127,8 +127,71 @@ char* temp2str(float f)
 	return float_str;
 }
 
+typedef enum {
+	TEP_STOP,
+	TEP_START,
+	TEP_NEWDATA,
+	TEP_STATBLE,
+	TEP_TIMEOUT,
+	TEP_ERROR,
+} tep_state_t;
 
-#define kalman_K (0.08)
+static tep_state_t mTepCtrlStatu;
+static uint32_t tempValx100, DispTempVal;
+
+static uint8_t strbuf[120] = {0};
+
+void TepDisplayer(void)
+{
+	char dspstr[50];
+	char _strlen;
+
+	static char waittime = 0;
+
+	switch(mTepCtrlStatu) {
+		case TEP_STOP: {
+			_strlen = sprintf(dspstr, "%s", "Stopped");
+		}
+		break;
+		case TEP_START: {
+			_strlen = sprintf(dspstr, "%s", "Start");
+			waittime = 0;
+		}
+		break;
+		case TEP_NEWDATA: {
+			_strlen = 0;
+			for(uint8_t i = 0; i < waittime; i++) {
+				_strlen += sprintf(dspstr + _strlen, "%s", ".");
+			}
+			waittime++;
+			waittime %= 8;
+
+		}
+		break;
+		case TEP_ERROR: {
+			_strlen = sprintf(dspstr, "Fail");
+		}
+		break;
+
+		case TEP_STATBLE: {
+			_strlen = sprintf(dspstr, "%d.%d", DispTempVal / 100, DispTempVal % 100);
+		}
+		break;
+	}
+
+	if(_strlen >= 16) {
+		_strlen = 16;
+	}
+
+	display_ascii((128 - _strlen * 8) / 2, 24, dspstr, _strlen);
+
+	display_ascii(0, 48, strbuf, strlen(strbuf));
+
+	display_ascii(64, 48, strbuf + 60, strlen(strbuf + 60));
+
+	display_implement();
+
+}
 
 void Hello(void)
 {
@@ -138,6 +201,219 @@ void Hello(void)
 	display_implement();
 }
 
+void displayStr(char* str, uint8_t offset)
+{
+
+	strcpy(strbuf + offset, str);
+	// display_ascii_big(0, 0, str, strlen(str));
+	// display_implement();
+}
+
+typedef enum {
+	STATE_LACK_DATA,
+	STATE_RISE,
+	STATE_FALL,
+	STATE_STABLE,
+	STATE_MESS,
+} tep_val_state_t;
+
+#define ALG_DATA_NUM_TH 45
+typedef struct {
+	uint16_t timeout;
+	tep_val_state_t val_state;
+	uint32_t stable_val;
+	uint32_t max_val;
+	uint32_t min_val;
+	uint32_t max_idx;
+	uint32_t min_idx;
+	uint32_t buf[25 * 2];
+	uint16_t num;
+} filter_t;
+
+
+filter_t mtepFilter;
+
+void tepFilter_init(void)
+{
+	memset(&mtepFilter, 0, sizeof(mtepFilter));
+	mtepFilter.timeout = 8 * 20;
+}
+
+void tepFilter_handler(uint32_t val)
+{
+
+	uint8_t nm;
+	nm = sizeof(mtepFilter.buf) / sizeof(mtepFilter.buf[0]);
+
+	// 传入工作区buf
+	for(uint8_t i = 0; i < nm - 1; i++) {
+		mtepFilter.buf[i] = mtepFilter.buf[i + 1];
+	}
+	mtepFilter.buf[nm - 1] = val;
+	// 记录数量
+	if(mtepFilter.num < nm) {
+		mtepFilter.num++;
+	}
+
+	uint32_t _temp;
+	mtepFilter.max_val = 0;
+	mtepFilter.min_val = 0xFFFFFFFF;
+
+	mtepFilter.min_idx = nm - 1;
+	mtepFilter.max_idx = nm - 1;
+
+	int8_t _idx = nm - 1;
+
+	int16_t td_cnt = 0;
+	// 记录最大值、最小值
+	for(uint8_t k = 0; k < mtepFilter.num ; k++) {
+
+		_temp = mtepFilter.buf[_idx];
+
+		if(_temp >= mtepFilter.max_val + 20) {
+
+			mtepFilter.max_val = _temp;
+			mtepFilter.max_idx = _idx;
+
+		} else if(_temp <= mtepFilter.min_val - 20) {
+
+			mtepFilter.min_val = _temp;
+			mtepFilter.min_idx = _idx;
+		}
+
+		if(_idx > 0) {
+
+			if(mtepFilter.buf[_idx] >= mtepFilter.buf[_idx - 1] + 5) {
+				td_cnt++;
+			} else if(mtepFilter.buf[_idx] <= mtepFilter.buf[_idx - 1] - 5) {
+				td_cnt--;
+			}
+			_idx--;
+		}
+
+	}
+
+	// 记录状态
+	if(mtepFilter.num < ALG_DATA_NUM_TH) {
+		mtepFilter.val_state = STATE_LACK_DATA;
+	} else if(mtepFilter.num == ALG_DATA_NUM_TH) {
+		mtepFilter.val_state = STATE_MESS;
+	}
+	// 监测曲线
+	else {
+
+		uint8_t riseNm;
+		uint8_t st_idx, ed_idx;
+		st_idx = nm - mtepFilter.num;
+		ed_idx = nm;
+
+		char _str[8] = {0};
+		sprintf(_str, "%d", td_cnt);
+
+		LOG_RAW("td_cnt:%d\r\n", td_cnt);
+
+		displayStr(_str, 60);
+
+		if(td_cnt > 30 || td_cnt < -30) {
+			if(td_cnt > 30) {
+				mtepFilter.val_state = STATE_RISE;
+				displayStr("UP", 0);
+			} else if(td_cnt < -30) {
+				mtepFilter.val_state = STATE_FALL;
+				displayStr("DOWN", 0);
+			}
+		} else {
+
+			uint32_t sum = 0, avg = 0;
+			for(uint8_t i = st_idx; i < ed_idx; i++) {
+				sum += mtepFilter.buf[i];
+			}
+			avg = sum / mtepFilter.num;
+
+			// 偏差求和
+			sum = 0;
+			for(uint8_t i = st_idx; i < ed_idx; i++) {
+				sum += (mtepFilter.buf[i] - avg) * (mtepFilter.buf[i] - avg);
+			}
+
+			// LOG_RAW(">>>>>avg:%d diff:%d\r\n", avg, sum);
+
+			if(mtepFilter.val_state != STATE_STABLE) {
+				// if(mtepFilter.max_idx==mtepFilter.min_idx || sum<=80)
+				{
+					mtepFilter.val_state = STATE_STABLE;
+					displayStr("Stable", 0);
+					mtepFilter.stable_val = avg;
+					// LOG_RAW(">>>>>>Stable\r\n");
+				}
+			}
+		}
+	}
+}
+#include "nrf_gpio.h"
+
+void disp_handler(uevt_t* evt)
+{
+	static char _mask = 0;
+
+	switch(evt->evt_id) {
+
+		case UEVT_DTIME_UPDATE: {
+			TepDisplayer();
+
+			if(mtepFilter.timeout != 0) {
+				mtepFilter.timeout --;
+			}
+		}
+		break;
+
+		case UEVT_BTN_RELEASE: {
+			if(mTepCtrlStatu == TEP_STOP) {
+				mTepCtrlStatu = TEP_START;
+				DispTempVal = 0;
+
+				//  清除滤波器
+				tepFilter_init();
+				_mask = 1;
+
+			} else {
+				_mask = 0;
+				mTepCtrlStatu = TEP_STOP;
+			}
+		}
+		break;
+
+		case UEVT_ADC_NEWDATA_FL: {
+			if(_mask == 0) {
+				break;
+			}
+			mTepCtrlStatu = TEP_NEWDATA;
+
+			tepFilter_handler(tempValx100);
+
+			if(mtepFilter.val_state == STATE_STABLE) {
+
+				DispTempVal = mtepFilter.stable_val;
+
+				mTepCtrlStatu = TEP_STATBLE;
+			} else if(mtepFilter.timeout == 0) {
+
+				if(mtepFilter.val_state == STATE_RISE) {
+					DispTempVal = mtepFilter.max_val;
+				} else if(mtepFilter.val_state == STATE_FALL) {
+					DispTempVal = mtepFilter.min_val;
+				}
+
+				mTepCtrlStatu = TEP_TIMEOUT;
+			}
+
+		}
+		break;
+	}
+
+}
+
+#define kalman_K (0.03)
 void test_handler(uevt_t* evt)
 {
 	static int16_t x_buffer[8] = {0};
@@ -173,7 +449,11 @@ void test_handler(uevt_t* evt)
 			do {
 				static uint8_t tic = 0;
 				float tf = calc_temp(temp);
-				if(tic++ >= 5) {
+				tempValx100 = tf * 100;
+				uevt_bc_e(UEVT_ADC_NEWDATA_FL);
+
+				// if(tic++ >= 5)
+				{
 					tic = 0;
 					LOG_RAW("Temp:%d=[", temp);
 					if(temp >= 4090) {
@@ -183,6 +463,7 @@ void test_handler(uevt_t* evt)
 					}
 				}
 			} while(0);
+
 			break;
 		case UEVT_BTN_LONG:
 			shutdown_now();
@@ -191,6 +472,13 @@ void test_handler(uevt_t* evt)
 }
 
 APP_TIMER_DEF(ADC_TIMER);
+APP_TIMER_DEF(DISP_TIMER);
+
+void D_timer_handler(void* p_context)
+{
+	uevt_bc_e(UEVT_DTIME_UPDATE);
+}
+
 void adc_25hz_handler(void* p_context)
 {
 	static int16_t p_data[2];
@@ -209,6 +497,7 @@ void user_event_dispatcher(uevt_t evt)
 	btn_on_uevt_handler(&evt);
 	led_on_uevt_handler(&evt);
 	test_handler(&evt);
+	disp_handler(&evt);
 }
 
 void rtc_1hz_handler(void)
@@ -226,6 +515,10 @@ void user_init(void)
 	app_timer_init();
 	app_timer_create(&ADC_TIMER, APP_TIMER_MODE_REPEATED, adc_25hz_handler);
 	app_timer_start(ADC_TIMER, APP_TIMER_TICKS(40), NULL);
+
+	app_timer_create(&DISP_TIMER, APP_TIMER_MODE_REPEATED, D_timer_handler);
+	app_timer_start(DISP_TIMER, APP_TIMER_TICKS(40), NULL);
+
 }
 
 int main(void)
