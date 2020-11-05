@@ -29,15 +29,15 @@
 
 ### 测温分压原理
 
-![sch](.\docs\sch.png)
+![sch](./docs/sch.png)
 
 ### 评估板展示
 
-<img src=".\docs\showcase1.webp" alt="showcase1" style="zoom:33%;" /><img src=".\docs\showcase2.webp" alt="showcase1" style="zoom:33%;" />
+<img src="./docs/showcase1.webp" alt="showcase1" style="zoom:33%;" /><img src="./docs/showcase2.webp" alt="showcase1" style="zoom:33%;" />
 
 
 
-<img src=".\docs\showcase3.webp" alt="showcase1" style="zoom:33%;" /><img src=".\docs\showcase4.webp" alt="showcase1" style="zoom:33%;" />
+<img src="./docs/showcase3.webp" alt="showcase1" style="zoom:33%;" /><img src="./docs/showcase4.webp" alt="showcase1" style="zoom:33%;" />
 
 ## 评估方式
 
@@ -77,7 +77,7 @@ $$\ln(x)=\ln(\frac{1+y}{1-y})=2y(\frac{1}{1}+\frac{1}{3}y^2+\frac{1}{5}y^4+\frac
 
 当使用裸探头直接接触人体小臂背部皮肤，并以手指自然压紧时，得到如下测量曲线：
 
-![without_case](.\docs\without_case.png)
+![without_case](./docs/without_case.png)
 
 图中采样率为`25 samples/s`，可以看到使用牛顿冷却模型的算法比实际探头测量值提前了约13秒便得到了准确的终端温度。所以使用`nRF52832`内置`ADC`在裸探头测量体表体温的场景下应当是可行的方案。
 
@@ -85,7 +85,7 @@ $$\ln(x)=\ln(\frac{1+y}{1-y})=2y(\frac{1}{1}+\frac{1}{3}y^2+\frac{1}{5}y^4+\frac
 
 当使用导热胶将探头安装至金属表壳上，其中测温部分的金属接触面与表壳其他部分使用了绝热材料进行隔离，以减小大面积表壳与空气的热交换对测量产生的影响。此时得到的测量曲线如下：
 
-![with_case](.\docs\with_case.png)
+![with_case](./docs/with_case.png)
 
 可以看到，将探头安装至表壳后，热导率有非常显著的下降，导热速率明显变慢，以至于以`nRF52832`内置`ADC`的精度无法再进行正确的预测。所以，这里认为使用内置`ADC`在表壳测量的场景下测量体表体温精度不够，是不可行的方案。
 
